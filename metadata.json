@@ -1,0 +1,7 @@
+{
+  "name": "DeckMaster AI Planner",
+  "description": "A comprehensive AI-powered residential deck planning application. Design, cost, and build your dream deck with real-time pricing and location-based insights.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
