@@ -10,26 +10,29 @@ const getAiClient = () => {
 export const generateDeckPlan = async (specs: DeckSpecs): Promise<PlanData> => {
   const ai = getAiClient();
   const prompt = `
-    Act as a professional US-based deck builder and architect.
-    Create a detailed construction plan for a residential deck with the following specifications:
+    Act as a professional US-based Architectural and Construction Planning AI.
+    Create a comprehensive construction plan for a residential deck.
+    
+    Specifications:
     - Type: ${specs.type}
     - Material: ${specs.material}
-    - Dimensions: ${specs.length}ft x ${specs.width}ft, ${specs.height}ft off grade.
-    - Location Context (Climate): ${specs.environment}
-    - Function: ${specs.function}
-    - Expansion Plans: ${specs.expansion}
-    - Railing: ${specs.railingMatch ? 'Matching material' : 'Standard'}
+    - Dimensions: ${specs.length}ft (L) x ${specs.width}ft (W) x ${specs.height}ft (H above grade)
+    - Location Context: ${specs.zipCode}
+    - Environment: ${specs.environment}
+    - Use Case: ${specs.function}
+    - Expansion: ${specs.expansion}
+    - Railing: ${specs.railingMatch ? 'Matching' : 'Standard'}
 
-    Output a JSON object with strictly this schema:
-    {
-      "bom": [ { "category": "Framing" | "Decking" | "Hardware" | "Waterproofing", "item": "string", "quantity": "string", "notes": "string" } ],
-      "tools": [ { "category": "string", "tools": ["string"] } ],
-      "steps": [ { "stepNumber": number, "title": "string", "description": "detailed string", "timeEstimate": "string" } ]
-    }
+    You MUST generate:
+    1. A complete Bill of Materials (BOM) categorized by Framing, Decking, Hardware, and Waterproofing.
+    2. A list of required tools for a DIY enthusiast.
+    3. A detailed Step-by-Step Execution Plan (at least 5-8 major steps) including Preparation, Foundation, Framing, Decking, and Finishing.
+
+    Output strictly valid JSON.
   `;
 
   const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3-pro-preview',
     contents: prompt,
     config: {
       responseMimeType: 'application/json',
@@ -45,7 +48,8 @@ export const generateDeckPlan = async (specs: DeckSpecs): Promise<PlanData> => {
                 item: { type: Type.STRING },
                 quantity: { type: Type.STRING },
                 notes: { type: Type.STRING },
-              }
+              },
+              required: ['category', 'item', 'quantity']
             }
           },
           tools: {
@@ -55,7 +59,8 @@ export const generateDeckPlan = async (specs: DeckSpecs): Promise<PlanData> => {
               properties: {
                 category: { type: Type.STRING },
                 tools: { type: Type.ARRAY, items: { type: Type.STRING } }
-              }
+              },
+              required: ['category', 'tools']
             }
           },
           steps: {
@@ -67,16 +72,23 @@ export const generateDeckPlan = async (specs: DeckSpecs): Promise<PlanData> => {
                 title: { type: Type.STRING },
                 description: { type: Type.STRING },
                 timeEstimate: { type: Type.STRING },
-              }
+              },
+              required: ['stepNumber', 'title', 'description', 'timeEstimate']
             }
           }
-        }
+        },
+        required: ['bom', 'tools', 'steps']
       }
     }
   });
 
   if (!response.text) throw new Error("Failed to generate plan");
-  return JSON.parse(response.text) as PlanData;
+  try {
+    return JSON.parse(response.text) as PlanData;
+  } catch (e) {
+    console.error("JSON Parse error in generateDeckPlan", e);
+    throw new Error("Invalid plan data received from AI");
+  }
 };
 
 // 2. Real-Time Cost Estimation (Search & Maps)
@@ -102,12 +114,11 @@ export const estimateDeckCost = async (specs: DeckSpecs, bomSummary: string): Pr
       "permitFees": "string",
       "contingency": "string (15% recommended)",
       "breakdown": [
-         { "item": "string (e.g. 2x6x12 Pressure Treated)", "quantity": "string", "unitPrice": "string (e.g. $12.50 / board)", "totalPrice": "string (e.g. $250.00)" }
+         { "item": "string", "quantity": "string", "unitPrice": "string", "totalPrice": "string" }
       ]
     }
   `;
 
-  // Note: responseMimeType and responseSchema are NOT supported when using tools like googleSearch/googleMaps.
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash',
     contents: prompt,
@@ -120,7 +131,6 @@ export const estimateDeckCost = async (specs: DeckSpecs, bomSummary: string): Pr
     ?.filter(c => c.web?.uri)
     .map(c => ({ title: c.web?.title || 'Source', uri: c.web?.uri || '#' })) || [];
 
-  // Maps chunks
   const mapSources = response.candidates?.[0]?.groundingMetadata?.groundingChunks
     ?.filter(c => c.maps?.uri)
     .map(c => ({ title: c.maps?.title || 'Map Location', uri: c.maps?.uri || '#' })) || [];
@@ -129,9 +139,7 @@ export const estimateDeckCost = async (specs: DeckSpecs, bomSummary: string): Pr
 
   if (!response.text) throw new Error("Failed to estimate costs");
   
-  // Clean the response text to extract JSON
   let cleanText = response.text.trim();
-  // Remove markdown code blocks if present
   if (cleanText.startsWith('```')) {
     cleanText = cleanText.replace(/^```json\s?/, '').replace(/^```\s?/, '').replace(/```$/, '');
   }
@@ -140,7 +148,7 @@ export const estimateDeckCost = async (specs: DeckSpecs, bomSummary: string): Pr
   try {
     data = JSON.parse(cleanText);
   } catch (e) {
-    console.warn("Failed to parse cost estimate JSON, falling back to empty", e);
+    console.warn("Failed to parse cost estimate JSON", e);
     data = {
       materialTotal: "N/A",
       laborTotal: "N/A",
@@ -178,13 +186,9 @@ export const chatWithAssistant = async (history: {role: string, parts: {text: st
 // 4. Image Generation (Visualization)
 export const generateStepImage = async (stepDescription: string, deckType: string, material: string, size: string) => {
   const ai = getAiClient(); 
-  
-  // Updated prompt for better technical quality
   const prompt = `Professional architectural technical drawing, isometric view. ${stepDescription}. Construction detail of a ${size} ${deckType} made of ${material}. Blueprint style, black lines on white background, high contrast, precise engineering diagram.`;
 
   try {
-      // Use gemini-2.5-flash-image (Nano Banana) for broader access and to avoid 403 errors.
-      // This model does not support 'imageSize' in config, only aspectRatio.
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
         contents: prompt,

@@ -22,7 +22,6 @@ const BuildStepsCard: React.FC<BuildStepsCardProps> = ({ steps, deckContext }) =
         }
     } catch (e) {
         console.error("Error generating image", e);
-        // Error handling is internal, maybe show a toast in real app
     } finally {
         setLoadingStep(null);
     }
@@ -41,7 +40,8 @@ const BuildStepsCard: React.FC<BuildStepsCardProps> = ({ steps, deckContext }) =
         </h3>
       </div>
       <div className="divide-y divide-gray-100">
-        {steps.map((step) => {
+        {steps.length > 0 ? (
+          steps.map((step) => {
             const isOpen = openStep === step.stepNumber;
             return (
                 <div key={step.stepNumber} className="bg-white">
@@ -74,9 +74,8 @@ const BuildStepsCard: React.FC<BuildStepsCardProps> = ({ steps, deckContext }) =
                                     Est: {step.timeEstimate}
                                 </span>
                             </div>
-                            <p className="text-gray-700 mb-4 leading-relaxed">{step.description}</p>
+                            <p className="text-gray-700 mb-4 leading-relaxed whitespace-pre-wrap">{step.description}</p>
                             
-                            {/* Image Section */}
                             {images[step.stepNumber] ? (
                                 <div className="mt-3 rounded-lg overflow-hidden border border-gray-200 shadow-inner max-w-lg">
                                     <img src={images[step.stepNumber]} alt={step.title} className="w-full h-auto object-cover" />
@@ -104,7 +103,12 @@ const BuildStepsCard: React.FC<BuildStepsCardProps> = ({ steps, deckContext }) =
                     )}
                 </div>
             );
-        })}
+          })
+        ) : (
+          <div className="p-8 text-center text-gray-500 italic">
+            No execution steps generated. Please try again or check your project specifications.
+          </div>
+        )}
       </div>
     </div>
   );
