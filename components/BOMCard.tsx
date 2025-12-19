@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { BomItem } from '../types';
 
 interface BOMCardProps {
@@ -6,20 +6,40 @@ interface BOMCardProps {
 }
 
 const BOMCard: React.FC<BOMCardProps> = ({ items }) => {
-  // Consolidate common notes
+  const [filter, setFilter] = useState<string>('All');
+  
   const commonNotes = [
     "Approx. 10% wastage included in quantities.",
     "Ensure all cut ends of pressure treated lumber are sealed with end-grain preservative.",
     "Fasteners should be hot-dipped galvanized or stainless steel."
   ];
 
+  const categories = ['All', 'Framing', 'Decking', 'Hardware', 'Waterproofing'];
+
+  const filteredItems = useMemo(() => {
+    if (filter === 'All') return items;
+    return items.filter(item => item.category === filter);
+  }, [items, filter]);
+
   return (
-    <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden h-full flex flex-col">
-      <div className="bg-slate-800 p-4">
+    <div id="bom-card" className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden h-full flex flex-col">
+      <div className="bg-slate-800 p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h3 className="text-white font-bold text-lg flex items-center gap-2">
            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
            Output 1: Bill of Materials
         </h3>
+        
+        <div className="flex gap-2 no-print">
+            {categories.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setFilter(cat)}
+                  className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${filter === cat ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+                >
+                    {cat}
+                </button>
+            ))}
+        </div>
       </div>
       <div className="p-0 overflow-x-auto flex-grow">
         <table className="w-full text-left border-collapse">
@@ -32,14 +52,16 @@ const BOMCard: React.FC<BOMCardProps> = ({ items }) => {
                 </tr>
             </thead>
             <tbody className="text-sm text-gray-700">
-                {items.map((item, idx) => (
+                {filteredItems.length > 0 ? filteredItems.map((item, idx) => (
                     <tr key={idx} className="hover:bg-blue-50 border-b border-gray-100 last:border-0">
                         <td className="p-3 pl-4 font-semibold text-gray-500">{item.category}</td>
                         <td className="p-3 font-medium text-gray-900">{item.item}</td>
                         <td className="p-3 text-center font-bold text-blue-600 bg-blue-50/30">{item.quantity}</td>
                         <td className="p-3 text-gray-500 italic text-xs max-w-xs">{item.notes}</td>
                     </tr>
-                ))}
+                )) : (
+                    <tr><td colSpan={4} className="p-8 text-center text-gray-400 italic">No materials in this category.</td></tr>
+                )}
             </tbody>
         </table>
       </div>

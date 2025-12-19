@@ -11,7 +11,7 @@ export const generateDeckPlan = async (specs: DeckSpecs): Promise<PlanData> => {
   const ai = getAiClient();
   const prompt = `
     Act as a professional US-based Architectural and Construction Planning AI.
-    Create a comprehensive construction plan for a residential deck.
+    Create a comprehensive construction plan for a residential deck named "${specs.projectName}".
     
     Specifications:
     - Type: ${specs.type}
@@ -25,7 +25,7 @@ export const generateDeckPlan = async (specs: DeckSpecs): Promise<PlanData> => {
 
     You MUST generate:
     1. A complete Bill of Materials (BOM) categorized by Framing, Decking, Hardware, and Waterproofing.
-    2. A list of required tools for a DIY enthusiast.
+    2. A list of required tools for a DIY enthusiast, including a brief "description" for each tool explaining its specific purpose for this deck.
     3. A detailed Step-by-Step Execution Plan (at least 5-8 major steps) including Preparation, Foundation, Framing, Decking, and Finishing.
 
     Output strictly valid JSON.
@@ -58,7 +58,17 @@ export const generateDeckPlan = async (specs: DeckSpecs): Promise<PlanData> => {
               type: Type.OBJECT,
               properties: {
                 category: { type: Type.STRING },
-                tools: { type: Type.ARRAY, items: { type: Type.STRING } }
+                tools: { 
+                  type: Type.ARRAY, 
+                  items: { 
+                    type: Type.OBJECT,
+                    properties: {
+                      name: { type: Type.STRING },
+                      description: { type: Type.STRING }
+                    },
+                    required: ['name', 'description']
+                  } 
+                }
               },
               required: ['category', 'tools']
             }
@@ -186,7 +196,6 @@ export const chatWithAssistant = async (history: {role: string, parts: {text: st
 // 4. Image Generation (Visualization - refined technical drawing style)
 export const generateStepImage = async (stepDescription: string, deckType: string, material: string, size: string) => {
   const ai = getAiClient(); 
-  // Refined prompt for higher quality technical visualization
   const prompt = `Isometric view, technical drawing style of a construction detail. Step: ${stepDescription}. Professional architectural blueprint style for a ${size} ${deckType} built with ${material}. Clean black lines on solid white background, high contrast, precise engineering diagram, professional carpentry illustration. No people.`;
 
   try {

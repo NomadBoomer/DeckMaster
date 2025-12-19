@@ -30,7 +30,6 @@ const App: React.FC = () => {
     setDreamDeckUrl(null);
 
     try {
-        // Parallel track: Dream Deck Visual
         generateDreamDeckImage(data).then(url => {
             setDreamDeckUrl(url);
             setLoadingDreamDeck(false);
@@ -39,12 +38,10 @@ const App: React.FC = () => {
             setLoadingDreamDeck(false);
         });
 
-        // Main track: Detailed Plan
         const plan = await generateDeckPlan(data);
         setPlanData(plan);
         setLoadingPlan(false);
 
-        // Cost track: Depends on BOM
         const bomSummary = plan.bom.map(i => `${i.quantity} x ${i.item}`).join(', ');
         const cost = await estimateDeckCost(data, bomSummary);
         setCostData(cost);
@@ -60,15 +57,13 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-100 pb-20">
-      {/* Floating Download Button */}
-      {planData && !loadingPlan && (
+      {planData && specs && !loadingPlan && (
         <DownloadButton 
-          contentId="project-export-area" 
-          projectName={`${specs?.length}x${specs?.width} ${specs?.type}`} 
+          specs={specs} 
+          dreamDeckUrl={dreamDeckUrl}
         />
       )}
 
-      {/* Hero Header */}
       <header className="bg-slate-900 text-white py-12 px-6 shadow-lg relative overflow-hidden no-print">
         <div className="absolute top-0 right-0 p-8 opacity-10">
              <svg xmlns="http://www.w3.org/2000/svg" className="h-64 w-64" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -84,25 +79,17 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 -mt-8 relative z-20 space-y-8">
-        
-        {/* Input Section */}
         <section className="no-print">
              <InputForm onSubmit={handleFormSubmit} isLoading={loadingPlan} />
         </section>
 
-        {/* Export Container */}
-        <div id="project-export-area" className="space-y-8">
-          
-          {/* 0. Dream Deck Visual (The Hook) */}
+        <div className="space-y-8">
           {(dreamDeckUrl || loadingDreamDeck) && (
             <DreamDeckCard imageUrl={dreamDeckUrl} isLoading={loadingDreamDeck} />
           )}
 
-          {/* Outputs Grid */}
           {(planData || loadingPlan) && (
               <section className="grid grid-cols-1 gap-8 animate-fade-in">
-                  
-                  {/* 1. BOM (Full Width) */}
                   <div className="min-h-[300px]">
                       {loadingPlan ? (
                           <div className="bg-white h-64 rounded-xl shadow p-6 animate-pulse flex flex-col gap-4">
@@ -118,7 +105,6 @@ const App: React.FC = () => {
                       )}
                   </div>
 
-                  {/* 2. Tools (Full Width) */}
                   <div>
                       {loadingPlan ? (
                           <div className="bg-white h-40 rounded-xl shadow p-6 animate-pulse flex flex-col gap-4">
@@ -133,7 +119,6 @@ const App: React.FC = () => {
                       )}
                   </div>
 
-                  {/* 3. Steps (Full Width) */}
                   <div>
                       {loadingPlan ? (
                           <div className="bg-white h-96 rounded-xl shadow p-6 animate-pulse">
@@ -151,7 +136,6 @@ const App: React.FC = () => {
                       )}
                   </div>
 
-                  {/* 4. Cost Estimator (Full Width) */}
                   <div>
                       <CostEstimatorCard 
                           estimate={costData} 

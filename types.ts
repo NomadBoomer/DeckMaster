@@ -18,11 +18,12 @@ export enum MaterialType {
 }
 
 export interface DeckSpecs {
+  projectName: string;
   length: number;
   width: number;
   height: number;
   zipCode: string;
-  address?: string; // Optional for more precise maps grounding
+  address?: string;
   function: string;
   expansion: string;
   environment: string;
@@ -38,9 +39,14 @@ export interface BomItem {
   notes?: string;
 }
 
+export interface ToolItem {
+  name: string;
+  description: string;
+}
+
 export interface ToolCategory {
   category: string;
-  tools: string[];
+  tools: ToolItem[];
 }
 
 export interface BuildStep {
