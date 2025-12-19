@@ -183,10 +183,11 @@ export const chatWithAssistant = async (history: {role: string, parts: {text: st
   return result.text;
 };
 
-// 4. Image Generation (Visualization)
+// 4. Image Generation (Visualization - refined technical drawing style)
 export const generateStepImage = async (stepDescription: string, deckType: string, material: string, size: string) => {
   const ai = getAiClient(); 
-  const prompt = `Professional architectural technical drawing, isometric view. ${stepDescription}. Construction detail of a ${size} ${deckType} made of ${material}. Blueprint style, black lines on white background, high contrast, precise engineering diagram.`;
+  // Refined prompt for higher quality technical visualization
+  const prompt = `Isometric view, technical drawing style of a construction detail. Step: ${stepDescription}. Professional architectural blueprint style for a ${size} ${deckType} built with ${material}. Clean black lines on solid white background, high contrast, precise engineering diagram, professional carpentry illustration. No people.`;
 
   try {
       const response = await ai.models.generateContent({
@@ -207,6 +208,34 @@ export const generateStepImage = async (stepDescription: string, deckType: strin
       return null;
   } catch (error) {
       console.error("Image generation failed", error);
+      throw error;
+  }
+};
+
+// 5. Dream Deck Generation (Ultra-realistic)
+export const generateDreamDeckImage = async (specs: DeckSpecs) => {
+  const ai = getAiClient();
+  const prompt = `Ultra-realistic high-angle overhead photograph of a young couple lounging on a beautiful, modern ${specs.material} ${specs.type}. They are sitting in comfortable outdoor furniture. Professional architectural photography, Cinematic golden hour lighting, 8k resolution, lifestyle magazine aesthetic, lush green landscaping in the background, high detail, sharp focus.`;
+
+  try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: prompt,
+        config: {
+            imageConfig: {
+                aspectRatio: "16:9"
+            }
+        }
+      });
+    
+      for (const part of response.candidates?.[0]?.content?.parts || []) {
+        if (part.inlineData) {
+          return `data:image/png;base64,${part.inlineData.data}`;
+        }
+      }
+      return null;
+  } catch (error) {
+      console.error("Dream deck generation failed", error);
       throw error;
   }
 };
