@@ -42,7 +42,9 @@ const App: React.FC = () => {
         setPlanData(plan);
         setLoadingPlan(false);
 
-        const bomSummary = plan.bom.map(i => `${i.quantity} x ${i.item}`).join(', ');
+        // Create a detailed item list for the cost estimator to price individually
+        const bomSummary = plan.bom.map(i => `- [${i.category}] ${i.quantity} x ${i.item}`).join('\n');
+        
         const cost = await estimateDeckCost(data, bomSummary);
         setCostData(cost);
 

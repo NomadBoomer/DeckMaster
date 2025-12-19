@@ -105,30 +105,34 @@ export const generateDeckPlan = async (specs: DeckSpecs): Promise<PlanData> => {
 export const estimateDeckCost = async (specs: DeckSpecs, bomSummary: string): Promise<CostEstimate> => {
   const ai = getAiClient();
   const prompt = `
-    I need a current, real-time cost estimate for building a deck in ${specs.zipCode} (${specs.address || 'USA'}).
+    I need a current, real-time cost estimate for building a deck in zip code ${specs.zipCode}, USA.
     Deck Specs: ${specs.length}x${specs.width}ft, ${specs.material}.
     
-    Based on these materials:
+    Below is the exact Bill of Materials (BOM) you must price. 
+    CRITICAL: The "breakdown" in your JSON response MUST contain a price for EVERY SINGLE ITEM in this list. 
+    DO NOT summarize them. List each one as a separate entry in the "breakdown" array.
+    
+    BOM to Price:
     ${bomSummary}
+    
+    CRITICAL: YOU MUST ONLY USE US-BASED DATA SOURCES. 
+    - Search for retailers: Home Depot, Lowe's, Menards, or 84 Lumber near ${specs.zipCode}.
+    - Search for building codes and permit fees for the city or county associated with zip code ${specs.zipCode}.
+    - DO NOT include international sources. Avoid sources like "Lotus's Bangkapi" or "Ace H and B" outside of the US.
 
-    Tasks:
-    1. Use Google Search to find current retail prices for ${specs.material} and pressure-treated lumber in/near ${specs.zipCode}.
-    2. Use Google Maps to verify local suppliers if possible.
-    3. Estimate local labor rates for deck building per sq ft.
-    4. Find typical building permit fees for this region.
-
-    Return a valid JSON string (and only the JSON string) matching this structure. Do not include markdown formatting:
+    Return a valid JSON string matching this structure:
     {
-      "materialTotal": "string (e.g. $2,500 - $3,000)",
+      "materialTotal": "string (e.g. $2500)",
       "laborTotal": "string",
       "permitFees": "string",
-      "contingency": "string (15% recommended)",
+      "contingency": "string (15%)",
       "breakdown": [
          { "item": "string", "quantity": "string", "unitPrice": "string", "totalPrice": "string" }
       ]
     }
   `;
 
+  // MUST use gemini-2.5-flash for googleMaps tool support
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash',
     contents: prompt,
@@ -138,7 +142,7 @@ export const estimateDeckCost = async (specs: DeckSpecs, bomSummary: string): Pr
   });
 
   const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks
-    ?.filter(c => c.web?.uri)
+    ?.filter(c => c.web?.uri && !c.web.uri.includes('.th') && !c.web.uri.includes('.uk') && !c.web.uri.includes('.au'))
     .map(c => ({ title: c.web?.title || 'Source', uri: c.web?.uri || '#' })) || [];
 
   const mapSources = response.candidates?.[0]?.groundingMetadata?.groundingChunks

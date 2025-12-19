@@ -15,6 +15,11 @@ const DownloadButton: React.FC<DownloadButtonProps> = ({ specs, dreamDeckUrl }) 
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = pdf.internal.pageSize.getHeight();
     
+    // Safety white bars to ensure content doesn't "peek" under header/footer lines
+    pdf.setFillColor(255, 255, 255);
+    pdf.rect(0, 0, pdfWidth, 15, 'F');
+    pdf.rect(0, pdfHeight - 15, pdfWidth, 15, 'F');
+
     // Header
     pdf.setFontSize(8);
     pdf.setTextColor(150, 150, 150);
@@ -22,7 +27,6 @@ const DownloadButton: React.FC<DownloadButtonProps> = ({ specs, dreamDeckUrl }) 
     pdf.text(`${new Date().toLocaleString()}`, pdfWidth - 15, 10, { align: 'right' });
     
     // Footer
-    pdf.setFontSize(8);
     pdf.text(`Page ${pageNum} of ${totalPages}`, pdfWidth / 2, pdfHeight - 10, { align: 'center' });
     
     // Decorative lines
@@ -35,17 +39,17 @@ const DownloadButton: React.FC<DownloadButtonProps> = ({ specs, dreamDeckUrl }) 
     const element = document.getElementById(elementId);
     if (!element) return;
 
-    // Preparation for capture: Show all items/images for the PDF
-    const originalFilter = (element.querySelector('select') as HTMLSelectElement)?.value;
-    const filterButtons = element.querySelectorAll('.no-print button');
-    
-    // For BOMCard specifically: trigger "All" filter if it exists
-    const allButton = Array.from(filterButtons).find(b => b.textContent === 'All') as HTMLButtonElement;
+    // 1. Prepare element for capture
+    const originalStyle = element.getAttribute('style');
+    element.style.height = 'auto';
+    element.style.overflow = 'visible';
+
+    // Force show all contents
+    const allButton = Array.from(element.querySelectorAll('.no-print button')).find(b => b.textContent?.includes('All')) as HTMLButtonElement;
     if (allButton) allButton.click();
 
-    // For BuildStepsCard: make all hidden steps visible for printing
-    const hiddenSteps = element.querySelectorAll('.print\\:block, .hidden');
-    hiddenSteps.forEach(el => {
+    const hiddenPrintItems = element.querySelectorAll('.print\\:block, .hidden');
+    hiddenPrintItems.forEach(el => {
         el.classList.remove('hidden');
         el.classList.add('block');
     });
@@ -55,64 +59,74 @@ const DownloadButton: React.FC<DownloadButtonProps> = ({ specs, dreamDeckUrl }) 
       useCORS: true,
       logging: false,
       backgroundColor: '#ffffff',
-      windowWidth: element.scrollWidth,
-      windowHeight: element.scrollHeight
+      windowWidth: 1200
     });
 
-    // Cleanup: restore original state if needed (though we're downloading now)
-    hiddenSteps.forEach(el => {
+    // Cleanup element
+    if (originalStyle) element.setAttribute('style', originalStyle);
+    hiddenPrintItems.forEach(el => {
         if (!el.classList.contains('print:block')) {
             el.classList.add('hidden');
             el.classList.remove('block');
         }
     });
 
-    const imgData = canvas.toDataURL('image/png');
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = pdf.internal.pageSize.getHeight();
     const usableWidth = pdfWidth - (margin * 2);
-    const usableHeight = pdfHeight - 40; // Subtract header/footer space
+    const topReserved = 25; 
+    const bottomReserved = 20; 
+    const usableHeight = pdfHeight - topReserved - bottomReserved;
 
     const imgWidth = usableWidth;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    const totalImgHeightMm = (canvas.height * imgWidth) / canvas.width;
+    const pxPerMm = canvas.width / imgWidth;
 
-    let heightLeft = imgHeight;
-    let position = 30; // Start below title
+    let heightLeftMm = totalImgHeightMm;
+    let sY = 0;
+    let sectionPageCount = 0;
 
-    // Add first chunk of section
-    pdf.addPage();
-    pdf.setFontSize(16);
-    pdf.setTextColor(30, 41, 59);
-    pdf.text(title, margin, 25);
-    
-    // Slice image if it's too tall for one page
-    let sY = 0; // Source Y in pixels (on canvas)
-    const pxToMm = canvas.width / usableWidth; // Ratio to convert mm to canvas px
+    while (heightLeftMm > 0) {
+      pdf.addPage();
+      sectionPageCount++;
 
-    while (heightLeft > 0) {
-      const pageCanvasHeightMm = Math.min(heightLeft, usableHeight - (position === 30 ? 10 : 0));
-      const pageCanvasHeightPx = pageCanvasHeightMm * pxToMm;
-
-      // Draw the chunk
-      pdf.addImage(
-        imgData, 
-        'PNG', 
-        margin, 
-        position, 
-        imgWidth, 
-        pageCanvasHeightMm, 
-        undefined, 
-        'FAST',
-        0 // No rotation
-      );
-
-      heightLeft -= pageCanvasHeightMm;
-      sY += pageCanvasHeightPx;
-
-      if (heightLeft > 0) {
-        pdf.addPage();
-        position = 20; // Start higher on subsequent pages of the same section
+      // Section Title only on first page of section
+      if (sectionPageCount === 1) {
+          pdf.setFontSize(16);
+          pdf.setTextColor(30, 41, 59);
+          pdf.text(title, margin, 22);
       }
+
+      const currentSliceHeightMm = Math.min(heightLeftMm, usableHeight);
+      const currentSliceHeightPx = currentSliceHeightMm * pxPerMm;
+
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = currentSliceHeightPx;
+      const ctx = tempCanvas.getContext('2d');
+      
+      if (ctx) {
+          ctx.drawImage(
+              canvas,
+              0, sY, canvas.width, currentSliceHeightPx, 
+              0, 0, canvas.width, currentSliceHeightPx  
+          );
+          
+          const sliceData = tempCanvas.toDataURL('image/jpeg', 0.9);
+          const yPos = sectionPageCount === 1 ? topReserved + 2 : 18; 
+
+          pdf.addImage(
+              sliceData,
+              'JPEG',
+              margin,
+              yPos,
+              imgWidth,
+              currentSliceHeightMm
+          );
+      }
+
+      sY += currentSliceHeightPx;
+      heightLeftMm -= currentSliceHeightMm;
     }
   };
 
@@ -124,7 +138,7 @@ const DownloadButton: React.FC<DownloadButtonProps> = ({ specs, dreamDeckUrl }) 
       const pdfHeight = pdf.internal.pageSize.getHeight();
       const margin = 15;
 
-      // 1. COVER PAGE
+      // COVER PAGE
       pdf.setFillColor(30, 41, 59);
       pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
       
@@ -165,13 +179,12 @@ const DownloadButton: React.FC<DownloadButtonProps> = ({ specs, dreamDeckUrl }) 
       pdf.setTextColor(100, 100, 100);
       pdf.text("Generated via DeckMaster AI Construction Intelligence", 20, pdfHeight - 10);
 
-      // 2. SUBSEQUENT PAGES (With slicing logic)
+      // Subsequent Sections
       await captureAndAddSection(pdf, 'bom-card', 'Output 1: Bill of Materials', margin);
       await captureAndAddSection(pdf, 'tools-card', 'Output 2: Tool Requirements', margin);
       await captureAndAddSection(pdf, 'execution-plan-card', 'Output 3: Execution Plan', margin);
       await captureAndAddSection(pdf, 'cost-estimator-card', 'Output 4: Cost Estimation', margin);
 
-      // Finalize multi-page layouts (headers/footers)
       const totalPages = (pdf as any).internal.getNumberOfPages();
       for (let j = 2; j <= totalPages; j++) {
         pdf.setPage(j);
@@ -181,7 +194,7 @@ const DownloadButton: React.FC<DownloadButtonProps> = ({ specs, dreamDeckUrl }) 
       pdf.save(`DeckMaster_Plan_${specs.projectName.replace(/\s+/g, '_')}.pdf`);
     } catch (error) {
       console.error("PDF Export error:", error);
-      alert("Error generating PDF. Please ensure all visualizations are loaded.");
+      alert("Error generating PDF. Please ensure all content is loaded.");
     } finally {
       setIsGenerating(false);
     }
