@@ -31,7 +31,7 @@ const ChatAssistant: React.FC = () => {
         }));
 
         const response = await chatWithAssistant(history, userMsg);
-        setMessages([...newMessages, { role: 'model', text: response }]);
+        setMessages([...newMessages, { role: 'model', text: response || '' }]);
     } catch (error) {
         setMessages([...newMessages, { role: 'model', text: "Sorry, I'm having trouble connecting right now." }]);
     } finally {
@@ -78,13 +78,14 @@ const ChatAssistant: React.FC = () => {
                 )}
                 {messages.map((m, i) => (
                     <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[85%] rounded-lg p-3 text-sm ${
-                            m.role === 'user' 
-                            ? 'bg-blue-600 text-white rounded-br-none' 
-                            : 'bg-white border border-gray-200 text-gray-800 rounded-bl-none shadow-sm'
-                        }`}>
-                            {m.text}
-                        </div>
+                        <div 
+                            className={`max-w-[85%] rounded-lg p-3 text-sm ${
+                                m.role === 'user' 
+                                ? 'bg-blue-600 text-white rounded-br-none' 
+                                : 'bg-white border border-gray-200 text-gray-800 rounded-bl-none shadow-sm'
+                            }`}
+                            dangerouslySetInnerHTML={{ __html: m.text }}
+                        />
                     </div>
                 ))}
                 {loading && (

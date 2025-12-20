@@ -184,6 +184,9 @@ const DownloadButton: React.FC<DownloadButtonProps> = ({ specs, dreamDeckUrl }) 
       await captureAndAddSection(pdf, 'tools-card', 'Output 2: Tool Requirements', margin);
       await captureAndAddSection(pdf, 'execution-plan-card', 'Output 3: Execution Plan', margin);
       await captureAndAddSection(pdf, 'cost-estimator-card', 'Output 4: Cost Estimation', margin);
+      
+      // Footer/Disclaimers Section
+      await captureAndAddSection(pdf, 'project-footer', 'Methodology & Disclaimers', margin);
 
       const totalPages = (pdf as any).internal.getNumberOfPages();
       for (let j = 2; j <= totalPages; j++) {

@@ -153,7 +153,7 @@ export const chatWithAssistant = async (history: any[], message: string) => {
   const chat = ai.chats.create({
     model: 'gemini-3-pro-preview',
     config: {
-      systemInstruction: "You are a professional Deck Building Expert. Use grounding to provide accurate code and material advice.",
+      systemInstruction: "You are a professional Deck Building Expert. Use grounding to provide accurate code and material advice. IMPORTANT: Do NOT use markdown for formatting. Use <b>text</b> for bold and <i>text</i> for italics.",
     },
     history,
   });
