@@ -1,24 +1,13 @@
+
 {
   "name": "deckmaster-ai-planner",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
+  "version": "1.0.0",
+  "description": "AI-powered residential deck planning application",
+  "main": "index.html",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "start": "npx serve -s . -l 8080"
   },
   "dependencies": {
-    "react": "^19.2.3",
-    "@google/genai": "^1.34.0",
-    "react-dom": "^19.2.3",
-    "jspdf": "^2.5.1",
-    "html2canvas": "^1.4.1"
-  },
-  "devDependencies": {
-    "@types/node": "^22.14.0",
-    "@vitejs/plugin-react": "^5.0.0",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "serve": "^14.2.4"
   }
 }
