@@ -8,6 +8,7 @@ import CostEstimatorCard from './components/CostEstimatorCard';
 import ChatAssistant from './components/ChatAssistant';
 import DreamDeckCard from './components/DreamDeckCard';
 import DownloadButton from './components/DownloadButton';
+import Footer from './components/Footer';
 import { generateDeckPlan, estimateDeckCost, generateDreamDeckImage } from './services/geminiService';
 
 const App: React.FC = () => {
@@ -42,7 +43,6 @@ const App: React.FC = () => {
         setPlanData(plan);
         setLoadingPlan(false);
 
-        // Create a detailed item list for the cost estimator to price individually
         const bomSummary = plan.bom.map(i => `- [${i.category}] ${i.quantity} x ${i.item}`).join('\n');
         
         const cost = await estimateDeckCost(data, bomSummary);
@@ -150,6 +150,7 @@ const App: React.FC = () => {
         </div>
       </main>
 
+      <Footer />
       <ChatAssistant />
     </div>
   );
