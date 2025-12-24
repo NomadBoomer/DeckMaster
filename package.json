@@ -5,7 +5,7 @@
   "description": "AI-powered residential deck planning application",
   "main": "index.html",
   "scripts": {
-    "start": "npx serve -s . -l 8080"
+    "start": "npx serve -s . -l $PORT"
   },
   "dependencies": {
     "serve": "^14.2.4"

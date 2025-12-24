@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { DeckSpecs } from '../types';
 
@@ -39,20 +40,18 @@ const DownloadButton: React.FC<DownloadButtonProps> = ({ specs, dreamDeckUrl }) 
     const element = document.getElementById(elementId);
     if (!element) return;
 
-    // 1. Prepare element for capture
-    const originalStyle = element.getAttribute('style');
+    // Prepare element for capture
+    const originalStyle = element.getAttribute('style') || '';
     element.style.height = 'auto';
     element.style.overflow = 'visible';
+    element.style.display = 'block';
 
     // Force show all contents
-    const allButton = Array.from(element.querySelectorAll('.no-print button')).find(b => b.textContent?.includes('All')) as HTMLButtonElement;
+    const allButton = Array.from(element.querySelectorAll('button')).find(b => b.textContent?.includes('All')) as HTMLButtonElement;
     if (allButton) allButton.click();
 
-    const hiddenPrintItems = element.querySelectorAll('.print\\:block, .hidden');
-    hiddenPrintItems.forEach(el => {
-        el.classList.remove('hidden');
-        el.classList.add('block');
-    });
+    // Give a tiny moment for layout recalculation if filtered
+    await new Promise(r => setTimeout(r, 100));
 
     const canvas = await html2canvas(element, {
       scale: 2,
@@ -62,14 +61,8 @@ const DownloadButton: React.FC<DownloadButtonProps> = ({ specs, dreamDeckUrl }) 
       windowWidth: 1200
     });
 
-    // Cleanup element
-    if (originalStyle) element.setAttribute('style', originalStyle);
-    hiddenPrintItems.forEach(el => {
-        if (!el.classList.contains('print:block')) {
-            el.classList.add('hidden');
-            el.classList.remove('block');
-        }
-    });
+    // Restore original style
+    element.setAttribute('style', originalStyle);
 
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = pdf.internal.pageSize.getHeight();
@@ -112,7 +105,7 @@ const DownloadButton: React.FC<DownloadButtonProps> = ({ specs, dreamDeckUrl }) 
               0, 0, canvas.width, currentSliceHeightPx  
           );
           
-          const sliceData = tempCanvas.toDataURL('image/jpeg', 0.9);
+          const sliceData = tempCanvas.toDataURL('image/jpeg', 0.95);
           const yPos = sectionPageCount === 1 ? topReserved + 2 : 18; 
 
           pdf.addImage(
@@ -121,7 +114,9 @@ const DownloadButton: React.FC<DownloadButtonProps> = ({ specs, dreamDeckUrl }) 
               margin,
               yPos,
               imgWidth,
-              currentSliceHeightMm
+              currentSliceHeightMm,
+              undefined,
+              'FAST'
           );
       }
 
@@ -133,7 +128,18 @@ const DownloadButton: React.FC<DownloadButtonProps> = ({ specs, dreamDeckUrl }) 
   const handleDownload = async () => {
     setIsGenerating(true);
     try {
-      const pdf = new jsPDF('p', 'mm', 'a4');
+      // Named import check
+      if (!jsPDF) {
+        throw new Error("jsPDF library failed to load correctly.");
+      }
+
+      const pdf = new jsPDF({
+        orientation: 'p',
+        unit: 'mm',
+        format: 'a4',
+        compress: true
+      });
+
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
       const margin = 15;
@@ -151,7 +157,7 @@ const DownloadButton: React.FC<DownloadButtonProps> = ({ specs, dreamDeckUrl }) 
       
       pdf.setTextColor(255, 255, 255);
       pdf.setFontSize(24);
-      pdf.text(specs.projectName, 20, 80);
+      pdf.text(specs.projectName || "Unnamed Project", 20, 80);
       
       pdf.setFillColor(51, 65, 85);
       pdf.roundedRect(20, 90, 170, 60, 3, 3, 'F');
@@ -170,9 +176,16 @@ const DownloadButton: React.FC<DownloadButtonProps> = ({ specs, dreamDeckUrl }) 
          try {
             const img = new Image();
             img.src = dreamDeckUrl;
-            await new Promise((resolve) => { img.onload = resolve; });
-            pdf.addImage(img, 'PNG', 20, 160, 170, 95.6);
-         } catch(e) { console.warn("Image fail", e); }
+            await new Promise((resolve, reject) => { 
+                img.onload = resolve; 
+                img.onerror = reject;
+                // Timeout safety
+                setTimeout(resolve, 3000);
+            });
+            pdf.addImage(img, 'PNG', 20, 160, 170, 95.6, undefined, 'FAST');
+         } catch(e) { 
+             console.warn("Dream deck image failed to embed in PDF", e); 
+         }
       }
 
       pdf.setFontSize(8);
@@ -194,10 +207,12 @@ const DownloadButton: React.FC<DownloadButtonProps> = ({ specs, dreamDeckUrl }) 
         addPageLayout(pdf, j, totalPages);
       }
 
-      pdf.save(`DeckMaster_Plan_${specs.projectName.replace(/\s+/g, '_')}.pdf`);
+      // Robust filename sanitization
+      const safeProjectName = (specs.projectName || 'Project').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      pdf.save(`DeckMaster_Plan_${safeProjectName}.pdf`);
     } catch (error) {
       console.error("PDF Export error:", error);
-      alert("Error generating PDF. Please ensure all content is loaded.");
+      alert("Error generating PDF. The construction report is large; please ensure all sections have loaded completely before downloading.");
     } finally {
       setIsGenerating(false);
     }

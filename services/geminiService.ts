@@ -100,10 +100,13 @@ export const estimateDeckCost = async (specs: DeckSpecs, bomSummary: string): Pr
     CRITICAL: YOU MUST PROVIDE A PRICING BREAKDOWN FOR EVERY SINGLE ITEM IN THIS LIST:
     ${bomSummary}
 
-    Instructions:
-    1. Use Google Search to find current retail prices for each item from Home Depot, Lowe's, and local lumber yards within 10 miles of ${specs.zipCode}.
-    2. Use Google Maps to verify at least 3 local supplier locations (Home Depot, Lowe's, or local specialists) near ${specs.zipCode}.
-    3. Do not summarize items. List every piece of hardware, framing, and decking individually in the JSON "breakdown".
+    Supplier Selection Instructions:
+    1. Identify up to 10 top-rated local hardware stores, lumber yards, and specialty suppliers within 10 miles of ${specs.zipCode}.
+    2. DO NOT include businesses that are "permanently closed".
+    3. Prioritize selection based on proximity to the project location, breadth of building material product range, and high customer reputation.
+    4. Ensure the list is unique with no duplicate entries.
+    5. Use Google Search to find current retail prices for the BOM items from these suppliers.
+    6. Use Google Maps to verify the physical addresses and operational status of these local suppliers.
 
     Return a valid JSON string (no markdown):
     {
@@ -118,19 +121,31 @@ export const estimateDeckCost = async (specs: DeckSpecs, bomSummary: string): Pr
   `;
 
   const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash', // Required for Google Maps tool
+    model: 'gemini-2.5-flash', 
     contents: prompt,
     config: {
       tools: [{ googleSearch: {} }, { googleMaps: {} }],
     }
   });
 
-  const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks
-    ?.filter(c => c.web?.uri || c.maps?.uri)
-    .map(c => ({ 
-      title: c.web?.title || c.maps?.title || 'Location/Source', 
-      uri: c.web?.uri || c.maps?.uri || '#' 
-    })) || [];
+  // Extract unique sources, limit to 10, prioritizing Maps data for reliability
+  const seenUris = new Set<string>();
+  const rawChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+  
+  const sources = rawChunks
+    .filter(c => c.web?.uri || c.maps?.uri)
+    .map(c => {
+      const uri = c.maps?.uri || c.web?.uri || '#';
+      const title = c.maps?.title || c.web?.title || 'Local Supplier';
+      return { title, uri };
+    })
+    .filter(src => {
+      // Basic deduplication and filter out empty or invalid URIs
+      if (src.uri === '#' || seenUris.has(src.uri)) return false;
+      seenUris.add(src.uri);
+      return true;
+    })
+    .slice(0, 10);
 
   if (!response.text) throw new Error("Failed to estimate costs");
   
